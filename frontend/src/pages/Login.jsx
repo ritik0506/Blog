@@ -1,79 +1,129 @@
-
-import{useContext, useEffect, useState} from 'react'
-
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import { BlogContext } from '../context/BlogContext.jsx';
-
+import { useState, useContext, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import AuthContext from '../context/AuthContext';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useContext(AuthContext);
 
-  const {backendUrl,token,setToken,navigate} = useContext(BlogContext)
-  const [currentState,setCurrentState] = useState('Login');
-  const[name,setName] = useState('')
-  const[password,setPassword] = useState('')
-  const[email,setEmail] = useState('')
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const onSubmitHandler = async (e) =>{
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      if (currentState === 'Sign Up') {
-        
-        const response = await axios.post(backendUrl + '/api/user/register',{name,email,password})
-       if (response.data.success) {
-        setToken(response.data.token)
-        localStorage.setItem('token', response.data.token)
-       }
-       else{
-        toast.error(response.data.message)
-       }
+    setError('');
+    setLoading(true);
 
-      } else {
-        console.log("backend url:"+ backendUrl)
-        const response = await axios.post(backendUrl+'/api/user/login',{email,password})
-        if (response.data.success) {
-          setToken(response.data.token)
-          localStorage.setItem('token', response.data.token)
-        }
-        else{
-         toast.error(response.data.message) 
-        }
-      }
-      
-    } catch (error) {
-      console.log(error.message)
-      toast.error(error.message)
+    const result = await login(formData.email, formData.password);
+
+    if (result.success) {
+      navigate('/');
+    } else {
+      setError(result.message);
+      setLoading(false);
     }
-  }
-
-  useEffect(()=>{
-    if (token) {
-      navigate('/')
-    }
-  },[token])
-
-
-
+  };
 
   return (
-    <form onSubmit={onSubmitHandler} className="flex flex-col items-center w-[90%] sm:max-w-96 m-auto mt-auto mt-14 gap-4 text-gray-800">
-      <div className="inline-flex items-center gap-2 mb-2 mt-10">
-        <p className="prata-regular text-3xl">{currentState}</p>
-        <hr className="border-none h-[1.5px] w-8 bg-gray-800"/>
-      </div>
-      {currentState === 'Login' ? '' :<input type="text" onChange={(e)=>setName(e.target.value)}  value={name} className='w-full px-3 py-2 border border-gray-800 'placeholder='Name' required/>}
-      <input onChange={(e)=>setEmail(e.target.value)} value={email} type="email" className='w-full px-3 py-2 border border-gray-800 'placeholder='Email' required />
-      <input onChange={(e)=>setPassword(e.target.value)} value={password} type="password" className='w-full px-3 py-2 border border-gray-800 'placeholder='Password' required />
-      <div className="w-full flex justify-between text-sm mt-[-8px]">
-        <p className='cursor-pointer'>Forgot Your Password</p>
-        {
-          currentState === 'Login' 
-          ? <p className='cursor-pointer' onClick={()=>setCurrentState('Sign Up')}>Create Account</p> :   
-            <p className='cursor-pointer' onClick={()=>setCurrentState('Login')}>Login Here</p>   }
-      </div>
-          <button className='bg-black text-white font-light px-8 py-2 mt-4'>{currentState === 'Login' ? 'Sign In' : 'Sign Up'}</button>
-    </form>
-  )
-}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center py-12 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-md">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-8 text-center">
+          <div className="text-6xl mb-3">👋</div>
+          <h2 className="text-3xl font-bold text-white mb-2">
+            Welcome Back!
+          </h2>
+          <p className="text-purple-100">Login to continue your journey</p>
+        </div>
 
-export default Login
+        <div className="p-8">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg mb-6 shadow-md animate-shake">
+              <div className="flex items-center">
+                <span className="text-2xl mr-3">⚠️</span>
+                <p className="font-medium">{error}</p>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">
+                📧 Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-lg"
+                placeholder="your@email.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">
+                🔒 Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-lg"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mt-6"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  Logging in...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  🚀 Login
+                </span>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <p className="text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-purple-600 hover:text-purple-800 font-semibold underline">
+                Create one now
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;

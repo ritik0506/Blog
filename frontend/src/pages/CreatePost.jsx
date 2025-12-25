@@ -1,141 +1,240 @@
-
-import axios from 'axios'
-import { useContext, useEffect, useState } from 'react';
-import { BlogContext } from '../context/BlogContext';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import AuthContext from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const CreatePost = () => {
-  const{token,user,backendUrl}= useContext(BlogContext)
-  const [image, setImage] = useState(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [content, setContent] = useState('');
   const navigate = useNavigate();
+  const { token } = useContext(AuthContext);
+  const toast = useToast();
 
-  // Function to handle image upload
-  // currently this is not working to make it working all i have to do is just that rem0ve token from header and in backend remove middleware and add recive the author from the formdata or solve this issue in which uer is not name of the author.
-  const handleImageChange = (e) => {
-    setImage((e.target.files[0]));
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    image: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [charCount, setCharCount] = useState(0);
+
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+
+    if (name === 'content') {
+      setCharCount(value.length);
+    }
   };
-    const formData = new FormData();
-    formData.append('image', image);
-    formData.append('title', title);  
-    formData.append('description', description);
-    formData.append('content', content);
-    formData.append('author', user);
-    
-  // Handle form submission
-  const handleSubmit = async(e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // You can handle the form submission here (e.g., send data to API)
-    try {
-      const response = await axios.post(backendUrl+'/api/blog/add-blog',formData, {headers: {
-        "Authorization":`Bearer ${token}`,
-        "Content-Type": "multipart/form-data", // Required for file uploads
-      },})
-      console.log(response.data)
-      navigate('/') // This will redirect to the homePage after the data is sent to the backend and is stored in the database;
-      
-    } catch (error) {
-      console.log(error)
+    setError('');
+
+    if (!formData.title || !formData.content) {
+      setError('Please provide both title and content');
+      toast.error('Please provide both title and content');
+      return;
     }
-    console.log({ title, description, content, image,user});
+
+    setLoading(true);
+
+    try {
+      const res = await axios.post(`${API_URL}/api/blog`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (res.data.success) {
+        toast.success('Blog created successfully! 🎉');
+        setTimeout(() => navigate(`/post/${res.data.blog._id}`), 500);
+      }
+    } catch (error) {
+      console.error('Error creating blog:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to create blog';
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // get This form only when there is a user available
-  useEffect(()=>{
-    if(!user){
-      navigate("/login")
-    }
-  })
+  const getReadingTime = () => {
+    const wordsPerMinute = 200;
+    const wordCount = formData.content.split(/\s+/).filter(word => word.length > 0).length;
+    const minutes = Math.ceil(wordCount / wordsPerMinute);
+    return minutes || 0;
+  };
 
-  
-   return (
-    
-    <div className="container mx-auto p-6">
-      <h1 className="text-4xl font-semibold text-center text-gray-800 mb-6">Create a New Blog Post</h1>
-      
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white p-6 shadow-md rounded-lg">
-        {/* Image Upload */}
-        <div className="mb-6">
-          <label htmlFor="image" className="block text-xl font-semibold text-gray-700 mb-2">
-            Blog Image
-          </label>
-          <input
-            type="file"
-            id="image"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="block w-full text-sm text-gray-600 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {image && (
-            <div className="mt-4">
-              <img src={image} alt="Blog Image Preview" className="max-w-full h-auto rounded-md" />
-            </div>
-          )}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 py-8">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-white flex items-center gap-3">
+              ✍️ Create New Blog Post
+            </h1>
+            <p className="text-purple-100 mt-2">Share your story with the world</p>
+          </div>
+
+          <div className="p-8">
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg mb-6 shadow-md animate-shake">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">⚠️</span>
+                  <p className="font-medium">{error}</p>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Title Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2 text-lg">
+                  📝 Title *
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  placeholder="Enter a captivating title..."
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Make it catchy and descriptive
+                </p>
+              </div>
+
+              {/* Image URL Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2 text-lg">
+                  🖼️ Cover Image URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  name="image"
+                  value={formData.image}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  placeholder="https://example.com/image.jpg"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Add a beautiful cover image to make your post stand out
+                </p>
+                
+                {formData.image && (
+                  <div className="mt-4 rounded-xl overflow-hidden shadow-lg">
+                    <img
+                      src={formData.image}
+                      alt="Preview"
+                      className="w-full h-64 object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Content Textarea */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2 text-lg">
+                  📄 Content *
+                </label>
+                <textarea
+                  name="content"
+                  value={formData.content}
+                  onChange={handleChange}
+                  rows="16"
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition font-mono"
+                  placeholder="Write your amazing content here...&#10;&#10;Pro tip: Use line breaks to organize your thoughts!"
+                  required
+                ></textarea>
+                
+                {/* Stats Bar */}
+                <div className="flex items-center justify-between mt-2 text-sm">
+                  <div className="flex items-center gap-4 text-gray-600">
+                    <span>
+                      📊 {formData.content.split(/\s+/).filter(word => word.length > 0).length} words
+                    </span>
+                    <span>•</span>
+                    <span>
+                      ⏱️ {getReadingTime()} min read
+                    </span>
+                    <span>•</span>
+                    <span>
+                      🔤 {charCount} characters
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                      Publishing...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      🚀 Publish Post
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="flex-1 sm:flex-none bg-gray-200 text-gray-700 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
 
-        {/* Title Input */}
-        <div className="mb-6">
-          <label htmlFor="title" className="block text-xl font-semibold text-gray-700 mb-2">
-            Blog Title
-          </label>
-          <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter blog title"
-            className="block w-full text-lg p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Tips Section */}
+        <div className="mt-8 bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            💡 Writing Tips
+          </h3>
+          <ul className="space-y-2 text-gray-700">
+            <li className="flex items-start gap-2">
+              <span>✓</span>
+              <span>Start with an attention-grabbing title</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>✓</span>
+              <span>Use clear paragraphs and line breaks for readability</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>✓</span>
+              <span>Choose a high-quality cover image that relates to your content</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>✓</span>
+              <span>Proofread before publishing</span>
+            </li>
+          </ul>
         </div>
-
-        {/* Description Input */}
-        <div className="mb-6">
-          <label htmlFor="description" className="block text-xl font-semibold text-gray-700 mb-2">
-            Blog Description
-          </label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter a short description of your blog"
-            rows="4"
-            className="block w-full text-lg p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        {/* Content Editor */}
-        <div className="mb-6">
-          <label htmlFor="content" className="block text-xl font-semibold text-gray-700 mb-2">
-            Blog Content
-          </label>
-          <textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Write your blog content here"
-            rows="6"
-            className="block w-full text-lg p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        {/* Submit Button */}
-        <div className="mb-6">
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white text-lg font-semibold py-3 rounded-md hover:bg-blue-700 transition duration-300"
-          >
-            Publish Blog
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
-  ); 
-
- 
-  
-
+  );
 };
 
 export default CreatePost;

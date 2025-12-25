@@ -1,14 +1,16 @@
-import express from "express";
-import upload from "../middleware/multer.js";
-import {addBlog , getBlog, singleBlog} from "../controller/blogController.js";
-import authUser from "../middleware/auth.js";
- // Import addBlog and upload from the same file
+import express from 'express';
+import { getAllBlogs, getBlog, createBlog, updateBlog, deleteBlog } from '../controller/blogController.js';
+import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Route to handle blog creation and image upload
-router.post("/add-blog", authUser,upload.single("image"), addBlog);
-router.get('/get-blog',getBlog)
-router.get("/post/:id",singleBlog)
+// Public routes
+router.get('/', getAllBlogs);
+router.get('/:id', getBlog);
+
+// Protected routes (require authentication)
+router.post('/', auth, createBlog);
+router.put('/:id', auth, updateBlog);
+router.delete('/:id', auth, deleteBlog);
 
 export default router;
